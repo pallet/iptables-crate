@@ -7,8 +7,7 @@
    [pallet.argument :as argument]
    [pallet.session :as session]
    [pallet.stevedore :as stevedore]
-   [clojure.contrib.string :as string]
-   [clojure.contrib.logging :as logging]))
+   [clojure.string :as string]))
 
 (def prefix
      {"filter" ":INPUT ACCEPT
