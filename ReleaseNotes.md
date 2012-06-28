@@ -1,7 +1,8 @@
 # Release notes
 
-- Update crates for pallet 0.6.3
+## 0.7.0-beta.1
 
+- Update crates for pallet 0.7
 
 ## pallet-crates-0.5.0
 
