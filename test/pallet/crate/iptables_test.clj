@@ -13,17 +13,18 @@
 (deftest iptables-test
   []
   (testing "debian"
-    (is (= (stevedore/do-script
-            (stevedore/script (var tmp @(mktemp iptablesXXXX)))
-            (actions/remote-file
-             {}
-             "$tmp"
-             :content
-             "*filter\n:INPUT ACCEPT\n:FORWARD ACCEPT\n:OUTPUT ACCEPT\n:FWR -\n-A INPUT -j FWR\n-A FWR -i lo -j ACCEPT\nf1\nf2\n# Rejects all remaining connections with port-unreachable errors.\n-A FWR -p tcp -m tcp --tcp-flags SYN,RST,ACK SYN -j REJECT --reject-with icmp-port-unreachable\n-A FWR -p udp -j REJECT --reject-with icmp-port-unreachable\nCOMMIT\n")
-            (stevedore/checked-script
-             "Restore IPtables"
-             ("/sbin/iptables-restore" < @tmp))
-            (stevedore/script (rm @tmp)))
+    (is (= (first
+            (build-actions/build-actions
+             {:server {:group-name :n :image {:os-family :ubuntu}}}
+             (stevedore/script (var tmp @(mktemp iptablesXXXX)))
+             (actions/remote-file
+              "$tmp"
+              :content
+              "*filter\n:INPUT ACCEPT\n:FORWARD ACCEPT\n:OUTPUT ACCEPT\n:FWR -\n-A INPUT -j FWR\n-A FWR -i lo -j ACCEPT\nf1\nf2\n# Rejects all remaining connections with port-unreachable errors.\n-A FWR -p tcp -m tcp --tcp-flags SYN,RST,ACK SYN -j REJECT --reject-with icmp-port-unreachable\n-A FWR -p udp -j REJECT --reject-with icmp-port-unreachable\nCOMMIT\n")
+             (stevedore/checked-script
+              "Restore IPtables"
+              ("/sbin/iptables-restore" < @tmp))
+             (stevedore/script (rm @tmp))))
            (first
             (build-actions/build-actions
              {:server {:group-name :n :image {:os-family :ubuntu}}}
