@@ -2,9 +2,7 @@
   (:use pallet.crate.iptables)
   (:require
    [pallet.action :as action]
-   [pallet.action.exec-script :as exec-script]
-   [pallet.action.file :as file]
-   [pallet.action.remote-file :as remote-file]
+   [pallet.actions :as actions]
    [pallet.build-actions :as build-actions]
    [pallet.stevedore :as stevedore])
   (:use clojure.test
@@ -12,22 +10,21 @@
 
 (use-fixtures :once with-ubuntu-script-template with-bash-script-language)
 
-(def remote-file* (action/action-fn remote-file/remote-file-action))
-
 (deftest iptables-test
   []
   (testing "debian"
-    (is (= (stevedore/do-script
-            (stevedore/script (var tmp @(mktemp iptablesXXXX)))
-            (remote-file*
-             {}
-             "$tmp"
-             :content
-             "*filter\n:INPUT ACCEPT\n:FORWARD ACCEPT\n:OUTPUT ACCEPT\n:FWR -\n-A INPUT -j FWR\n-A FWR -i lo -j ACCEPT\nf1\nf2\n# Rejects all remaining connections with port-unreachable errors.\n-A FWR -p tcp -m tcp --tcp-flags SYN,RST,ACK SYN -j REJECT --reject-with icmp-port-unreachable\n-A FWR -p udp -j REJECT --reject-with icmp-port-unreachable\nCOMMIT\n")
-            (stevedore/checked-script
-             "Restore IPtables"
-             ("/sbin/iptables-restore" < @tmp))
-            (stevedore/script (rm @tmp)))
+    (is (= (first
+            (build-actions/build-actions
+             {:server {:group-name :n :image {:os-family :ubuntu}}}
+             (stevedore/script (var tmp @(mktemp iptablesXXXX)))
+             (actions/remote-file
+              "$tmp"
+              :content
+              "*filter\n:INPUT ACCEPT\n:FORWARD ACCEPT\n:OUTPUT ACCEPT\n:FWR -\n-A INPUT -j FWR\n-A FWR -i lo -j ACCEPT\nf1\nf2\n# Rejects all remaining connections with port-unreachable errors.\n-A FWR -p tcp -m tcp --tcp-flags SYN,RST,ACK SYN -j REJECT --reject-with icmp-port-unreachable\n-A FWR -p udp -j REJECT --reject-with icmp-port-unreachable\nCOMMIT\n")
+             (stevedore/checked-script
+              "Restore IPtables"
+              ("/sbin/iptables-restore" < @tmp))
+             (stevedore/script (rm @tmp))))
            (first
             (build-actions/build-actions
              {:server {:group-name :n :image {:os-family :ubuntu}}}
@@ -37,12 +34,12 @@
     (is (= (first
             (build-actions/build-actions
              {:server {:group-name :n :image {:os-family :centos}}}
-             (remote-file/remote-file
+             (actions/remote-file
               "/etc/sysconfig/iptables"
               :content
               "*filter\n:INPUT ACCEPT\n:FORWARD ACCEPT\n:OUTPUT ACCEPT\n:FWR -\n-A INPUT -j FWR\n-A FWR -i lo -j ACCEPT\n\n# Rejects all remaining connections with port-unreachable errors.\n-A FWR -p tcp -m tcp --tcp-flags SYN,RST,ACK SYN -j REJECT --reject-with icmp-port-unreachable\n-A FWR -p udp -j REJECT --reject-with icmp-port-unreachable\nCOMMIT\n"
               :mode "0755")
-             (exec-script/exec-script
+             (actions/exec-script
               ("/sbin/iptables-restore" < "/etc/sysconfig/iptables"))))
            (first
             (build-actions/build-actions
