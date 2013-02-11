@@ -2,10 +2,8 @@
   "Crate for managing iptables"
   (:require
    [pallet.action :as action]
-   [pallet.action.file :as file]
-   [pallet.action.remote-file :as remote-file]
-   [pallet.argument :as argument]
-   [pallet.session :as session]
+   [pallet.actions :as actions]
+   [pallet.crate :as crate]
    [pallet.stevedore :as stevedore]
    [clojure.string :as string]))
 
@@ -23,14 +21,11 @@
 COMMIT
 "})
 
-(def ^{:private true}
-  remote-file* (action/action-fn remote-file/remote-file-action))
-
 (defn restore-iptables
   [session [table rules]]
   (pallet.stevedore/script
    (var tmp @(mktemp iptablesXXXX))
-   ~(remote-file* session "$tmp" :content rules)
+   ~(actions/remote-file session "$tmp" :content rules)
    ~(pallet.stevedore/checked-script
      "Restore IPtables"
      ("/sbin/iptables-restore" < @tmp))
@@ -41,39 +36,40 @@ COMMIT
   (string/join \newline (map second tables)))
 
 
-(action/def-aggregated-action iptables-rule
+(crate/def-aggregate-plan-fn iptables-rule
   "Define a rule for the iptables. The argument should be a string containing an
 iptables configuration line (cf. arguments to an iptables invocation)"
   {:arglists '([session table config-line])}
   [session args]
-  (let [args (group-by first args)
-        tables (into
-                {}
-                (map
-                 #(vector
-                   (first %)
-                   (str
-                    "*" (first %) \newline
-                    (string/join
-                     \newline (filter
-                               identity
-                               [(prefix (first %))
-                                (string/join
-                                 \newline
-                                 (map second (second %)))
-                                (suffix (first %) "COMMIT\n")])))) args))
-        packager (session/packager session)]
-    (case packager
-      :aptitude (stevedore/do-script*
-                 (map #(restore-iptables session %) tables))
-      :yum (stevedore/do-script
-            (remote-file*
-             session
-             "/etc/sysconfig/iptables"
-             :mode "0755"
-             :content (format-iptables tables))
-            (stevedore/script
-             ("/sbin/iptables-restore" < "/etc/sysconfig/iptables"))))))
+  (fn [session args]
+    (let [args (group-by first args)
+          tables (into
+                  {}
+                  (map
+                   #(vector
+                     (first %)
+                     (str
+                      "*" (first %) \newline
+                      (string/join
+                       \newline (filter
+                                 identity
+                                 [(prefix (first %))
+                                  (string/join
+                                   \newline
+                                   (map second (second %)))
+                                  (suffix (first %) "COMMIT\n")])))) args))
+          packager (crate/packager)]
+      (case packager
+        :aptitude (stevedore/do-script*
+                   (map #(restore-iptables session %) tables))
+        :yum (stevedore/do-script
+              (actions/remote-file
+               session
+               "/etc/sysconfig/iptables"
+               :mode "0755"
+               :content (format-iptables tables))
+              (stevedore/script
+               ("/sbin/iptables-restore" < "/etc/sysconfig/iptables")))))))
 
 (defn iptables-accept-established
   "Accept established connections"
