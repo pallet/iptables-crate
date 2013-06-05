@@ -5,6 +5,7 @@
    [pallet.actions :as actions]
    [pallet.crate :as crate]
    [pallet.stevedore :as stevedore]
+   [pallet.stevedore.bash]
    [clojure.string :as string]))
 
 (def prefix
@@ -48,22 +49,22 @@ iptables configuration line (cf. arguments to an iptables invocation)"
                                    (map second (second %)))
                                   (suffix (first %) "COMMIT\n")])))) args))
           packager (crate/packager)]
-      (case packager
-        :aptitude (stevedore/do-script
-                   (stevedore/script
-                    (var tmp @(mktemp iptablesXXXX)))
-                   (actions/remote-file "$tmp" :content (format-iptables tables))
-                   (stevedore/checked-script
-                    "Restore IPtables"
-                    ("/sbin/iptables-restore" < @tmp))
-                   (stevedore/script (rm @tmp)))
-        :yum (stevedore/do-script
-              (actions/remote-file
-               "/etc/sysconfig/iptables"
-               :mode "0755"
-               :content (format-iptables tables))
-              (actions/exec-script
-               ("/sbin/iptables-restore" < "/etc/sysconfig/iptables")))))))
+      (cond
+       (#{:aptitude :apt} packager) (stevedore/do-script
+                                     (stevedore/script
+                                      (var tmp @("mktemp" iptablesXXXX)))
+                                     (actions/remote-file "$tmp" :content (format-iptables tables))
+                                     (stevedore/checked-script
+                                      "Restore IPtables"
+                                      ("/sbin/iptables-restore" < @tmp))
+                                     (stevedore/script ("rm" @tmp)))
+       (= :yum packager) (stevedore/do-script
+                             (actions/remote-file
+                              "/etc/sysconfig/iptables"
+                              :mode "0755"
+                              :content (format-iptables tables))
+                             (actions/exec-script
+                              ("/sbin/iptables-restore" < "/etc/sysconfig/iptables")))))))
 
 (defn iptables-accept-established
   "Accept established connections"
