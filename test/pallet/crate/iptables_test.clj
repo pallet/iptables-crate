@@ -16,7 +16,7 @@
     (is (= (first
             (build-actions/build-actions
              {:server {:group-name :n :image {:os-family :ubuntu}}}
-             (stevedore/script (var tmp @(mktemp iptablesXXXX)))
+             (stevedore/script (var tmp @("mktemp" iptablesXXXX)))
              (actions/remote-file
               "$tmp"
               :content
@@ -24,7 +24,7 @@
              (stevedore/checked-script
               "Restore IPtables"
               ("/sbin/iptables-restore" < @tmp))
-             (stevedore/script (rm @tmp))))
+             (stevedore/script ("rm" @tmp))))
            (first
             (build-actions/build-actions
              {:server {:group-name :n :image {:os-family :ubuntu}}}
@@ -68,10 +68,10 @@
              (iptables-rule
               "filter"
               "-A FWR -p tcp --dport 80 -j ACCEPT")))
-         (first
-          (build-actions/build-actions
-           {:server {:group-name :n :image {:os-family :centos}}}
-           (iptables-accept-port 80))))))
+           (first
+            (build-actions/build-actions
+             {:server {:group-name :n :image {:os-family :centos}}}
+             (iptables-accept-port 80))))))
   (testing "accept with source"
     (is (= (first
             (build-actions/build-actions
