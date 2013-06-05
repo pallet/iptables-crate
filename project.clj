@@ -1,6 +1,6 @@
 (defproject com.palletops/iptables-crate "0.8.0-SNAPSHOT"
   :description "IPTables crate for Pallet"
-  :url "http://example.com/FIXME"
+  :url "http://github.com/pallet/iptables-crate"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.4.0"]
