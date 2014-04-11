@@ -4,6 +4,7 @@
    [pallet.action :as action]
    [pallet.actions :as actions]
    [pallet.crate :as crate]
+   [pallet.script.lib :refer [make-temp-file rm]]
    [pallet.stevedore :as stevedore]
    [clojure.string :as string]))
 
@@ -51,7 +52,15 @@ iptables configuration line (cf. arguments to an iptables invocation)"
       (case packager
         :aptitude (stevedore/do-script
                    (stevedore/script
-                    (var tmp @(mktemp iptablesXXXX)))
+                    (var tmp @(make-temp-file iptablesXXXX)))
+                   (actions/remote-file "$tmp" :content (format-iptables tables))
+                   (stevedore/checked-script
+                    "Restore IPtables"
+                    ("/sbin/iptables-restore" < @tmp))
+                   (stevedore/script (rm @tmp)))
+        :apt (stevedore/do-script
+                   (stevedore/script
+                    (var tmp @(make-temp-file iptablesXXXX)))
                    (actions/remote-file "$tmp" :content (format-iptables tables))
                    (stevedore/checked-script
                     "Restore IPtables"

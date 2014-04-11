@@ -4,6 +4,7 @@
    [pallet.action :as action]
    [pallet.actions :as actions]
    [pallet.build-actions :as build-actions]
+   [pallet.script.lib :refer [make-temp-file rm]]
    [pallet.stevedore :as stevedore])
   (:use clojure.test
         pallet.test-utils))
@@ -16,7 +17,7 @@
     (is (= (first
             (build-actions/build-actions
              {:server {:group-name :n :image {:os-family :ubuntu}}}
-             (stevedore/script (var tmp @(mktemp iptablesXXXX)))
+             (stevedore/script (var tmp @(make-temp-file iptablesXXXX)))
              (actions/remote-file
               "$tmp"
               :content
