@@ -2,6 +2,7 @@
   "Crate for managing iptables"
   (:require
    [clojure.string :as string]
+   [clojure.tools.logging :refer [debugf]]
    [pallet.action :as action]
    [pallet.actions :refer [exec-checked-script remote-file]]
    [pallet.api :as api :refer [plan-fn]]
@@ -21,8 +22,10 @@
 (defn settings
   "Define initial settings."
   [{:keys [iptables-file iptables-restore instance-id rules] :as settings}]
-  (let [default (os-settings)]
-    (assoc-settings facility instance-id (deep-merge default settings))))
+  (let [default (os-settings)
+        effective-settings (deep-merge default settings)]
+    (debugf "iptables settings %s" effective-settings )
+    (assoc-settings facility effective-settings {:instance-id instance-id})))
 
 (defn iptables-rule
   "Define a rule for the iptables. The argument should be a string
@@ -53,7 +56,11 @@
   "Installs iptables boot time configuration."
   [{:keys [instance-id] :as options}]
   (let [{:keys [iptables-file iptables-restore network-manager if]}
-        (get-settings facility instance-id)]
+        (get-settings facility {:instance-id instance-id})]
+    (debugf "Install iptables boot config network-manager %s if %s"
+            (boolean network-manager) (boolean if))
+    (debugf "Install iptables boot config file %s, loading with %s"
+            iptables-file iptables-restore)
     (when network-manager
       (install-network-manager-config
        iptables-file iptables-restore network-manager))
@@ -64,8 +71,11 @@
   "Configure iptables.  This changes the running iptables, and writes the
   configuration for setting iptables on boot."
   [{:keys [instance-id] :as options}]
-  (let [{:keys [iptables-restore iptables-file rules]}
-        (get-settings facility instance-id)]
+  (debugf "plan-state %s" (pr-str (:plan-state (pallet.core.session/session))))
+  (let [{:keys [iptables-file iptables-restore rules] :as settings}
+        (get-settings facility {:instance-id instance-id})]
+    (debugf "Writing iptables configuration to %s and loading with %s"
+            iptables-file iptables-restore)
     (remote-file
      iptables-file
      :mode "0644"
@@ -73,7 +83,7 @@
      :content (iptables rules))
     (exec-checked-script
      "Restore iptables configuration"
-     (iptables-restore < iptables-file))))
+     (iptables-restore < ~iptables-file))))
 
 (defn accept-established
   "Accept established connections"

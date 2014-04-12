@@ -1,13 +1,13 @@
 (ns pallet.crate.iptables-test
-  (:use pallet.crate.iptables)
   (:require
+   [clojure.test :refer :all]
    [pallet.action :as action]
    [pallet.actions :as actions]
    [pallet.build-actions :as build-actions]
+   [pallet.crate.iptables :refer :all]
    [pallet.script.lib :refer [make-temp-file rm]]
-   [pallet.stevedore :as stevedore])
-  (:use clojure.test
-        pallet.test-utils))
+   [pallet.stevedore :as stevedore]
+   [pallet.test-utils :refer :all]))
 
 ;; (use-fixtures :once with-ubuntu-script-template with-bash-script-language)
 
@@ -101,9 +101,12 @@
 
 (deftest invocation-test
   (is (build-actions/build-actions
-       {:server {:image {:os-family :ubuntu}}}
+          {:server {:image {:os-family :ubuntu}}}
+        (settings {})
        (accept-established)
        (accept-icmp)
        (accept-port 80)
        (redirect-port 80 81)
-       (throttle-port "a" 80))))
+       (throttle-port "a" 80)
+       (let [settings (pallet.crate/get-settings facility)]
+         (is (:iptables-file settings))))))
