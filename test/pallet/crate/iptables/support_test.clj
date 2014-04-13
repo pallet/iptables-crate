@@ -32,7 +32,7 @@
                              (package-manager :update)
                              (automated-admin-user))
                 :settings (plan-fn
-                            (iptables/settings {})
+                            (iptables/settings)
                             (iptables/accept-established)
                             (iptables/accept-icmp)
                             (iptables/accept-port 22)

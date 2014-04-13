@@ -4,28 +4,60 @@
    [clojure.string :as string]
    [clojure.tools.logging :refer [debugf]]
    [pallet.action :as action]
-   [pallet.actions :refer [exec-checked-script remote-file]]
+   [pallet.actions :refer [directory exec-checked-script package remote-file]]
    [pallet.api :as api :refer [plan-fn]]
    [pallet.crate :as crate :refer [assoc-settings get-settings update-settings]]
    [pallet.crate.iptables.config :as config
     :refer [if-script iptables network-manager-script Rule]]
-   [pallet.crate.iptables.kb :refer [os-settings]]
-   [pallet.utils :refer [deep-merge]]
+   [pallet.crate.iptables.kb :as kb :refer [os-settings package-names]]
+   [pallet.crate-install :refer [install-from]]
+   [pallet.script.lib :refer [dirname]]
+   [pallet.stevedore :refer [fragment]]
+   [pallet.utils :refer [apply-map deep-merge]]
    [schema.core :as schema :refer [validate]]))
 
-;; https://help.ubuntu.com/community/IptablesHowTo
-
+;;; # Settings
 (def facility
   "Identifier used to access settings."
   ::iptables)
 
+(defn package-install
+  "Settings for a package install strategy."
+  []
+  {:install-strategy :packages
+   :packages (package-names)})
+
+(defn persistent-rules-settings
+  "Settings for different ways to make the iptables rules persist.  The
+  return value should be put in the settings on the :persist-rules key."
+  [kw]
+  {:pre [(keyword? kw)]}
+  (let [m (kw kb/persistent-rules)]
+    (when-not m
+      (throw
+       (ex-info (str "Unknown iptables persistent rule strategy: " kw))))
+    {kw m}))
+
+(defn default-persistence-settings
+  "Return the default settings for making iptables persistent."
+  []
+  (if-let [kw (kb/default-persistence)]
+    {:persist-rules (persistent-rules-settings kw)}))
+
+(defn default-settings
+  "Default settings for iptables."
+  []
+  (deep-merge
+   (os-settings)
+   (package-install)
+   (default-persistence-settings)))
+
 (defn settings
   "Define initial settings."
-  [{:keys [iptables-file iptables-restore instance-id rules] :as settings}]
-  (let [default (os-settings)
-        effective-settings (deep-merge default settings)]
-    (debugf "iptables settings %s" effective-settings )
-    (assoc-settings facility effective-settings {:instance-id instance-id})))
+  ([{:keys [iptables-file iptables-restore instance-id rules] :as settings}]
+     (debugf "iptables settings %s" settings )
+     (assoc-settings facility settings {:instance-id instance-id}))
+  ([] (settings (default-settings))))
 
 (defn iptables-rule
   "Define a rule for the iptables. The argument should be a string
@@ -36,36 +68,49 @@
   (update-settings facility options update-in [:rules]
                    (fnil conj []) [table config-line]))
 
-(defn install-network-manager-config
-  [iptables-file iptables-restore {:keys [file]}]
+;;; # Install
+(defmulti install-persistence
+  "Install an iptables persistence strategy."
+  (fn [k v settings] k))
+
+(defmethod install-persistence :network-manager
+  [_ {:keys [file]} {:keys [iptables-file iptables-restore]}]
+  {:pre [file iptables-file iptables-restore]}
   (remote-file
    file
    :mode "0755"
    :content (network-manager-script iptables-file iptables-restore)
    :owner "root"))
 
-(defn install-if-config
-  [iptables-file iptables-restore {:keys [file]}]
+(defmethod install-persistence :if
+  [_ {:keys [file]} {:keys [iptables-file iptables-restore]}]
+  {:pre [file iptables-file iptables-restore]}
   (remote-file
    file
    :mode "0755"
    :content (if-script iptables-file iptables-restore)
    :owner "root"))
 
+(defmethod install-persistence :persistent-package
+  [_ {:keys [packages package-options]} _]
+  {:pre [packages]}
+  (doseq [p packages]
+    (apply-map package p package-options)))
+
 (defn install
   "Installs iptables boot time configuration."
   [{:keys [instance-id] :as options}]
-  (let [{:keys [iptables-file iptables-restore network-manager if]}
+  (let [{:keys [install-strategy iptables-file iptables-restore
+                persist-rules]
+         :as settings}
         (get-settings facility {:instance-id instance-id})]
-    (debugf "Install iptables boot config network-manager %s if %s"
-            (boolean network-manager) (boolean if))
-    (debugf "Install iptables boot config file %s, loading with %s"
-            iptables-file iptables-restore)
-    (when network-manager
-      (install-network-manager-config
-       iptables-file iptables-restore network-manager))
-    (when if
-      (install-if-config iptables-file iptables-restore if))))
+    (directory (fragment @(dirname ~iptables-file)) :owner "root")
+    (when install-strategy
+      (debugf "Install iptables via %s" install-strategy)
+      (install-from settings))
+    (doseq [[k m :as s] persist-rules]
+      (debugf "Install iptables boot persistence %s" k)
+      (install-persistence k m settings))))
 
 (defn configure
   "Configure iptables.  This changes the running iptables, and writes the

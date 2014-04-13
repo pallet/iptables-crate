@@ -102,7 +102,7 @@
 (deftest invocation-test
   (is (build-actions/build-actions
           {:server {:image {:os-family :ubuntu}}}
-        (settings {})
+       (settings)
        (accept-established)
        (accept-icmp)
        (accept-port 80)
