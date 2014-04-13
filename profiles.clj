@@ -4,6 +4,7 @@
  :dev {:dependencies [[com.palletops/pallet "0.8.0-RC.9"
                        :classifier "tests"
                        :exclusions [org.clojure/tools.logging]]
+                      [com.palletops/crates "0.1.2-SNAPSHOT"]
                       [com.palletops/pallet-test-env "RELEASE"]
                       [ch.qos.logback/logback-classic "1.1.1"]]
        :plugins [[com.palletops/lein-test-env "RELEASE"]
