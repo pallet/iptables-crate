@@ -174,7 +174,11 @@
       (select-keys options [:instance-id]))))
 
 (defn server-spec
-  [settings & {:keys [instance-id] :as options}]
+  "Return a server-spec map for installing and configuring iptables.
+  `settings` is a map, which defaults to to the result of calling
+  `default-settings`."
+  ([] (server-spec nil))
+  ([settings & {:keys [instance-id] :as options}]
   (api/server-spec
    :phases {:settings (plan-fn
                           (pallet.crate.iptables/settings
@@ -183,4 +187,4 @@
                          (install options))
             :configure (plan-fn
                         (configure options))}
-   :default-phases [:install :configure]))
+   :default-phases [:install :configure])))
