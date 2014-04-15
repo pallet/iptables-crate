@@ -2,8 +2,9 @@
   (:require
    [clojure.test :refer :all]
    [clojure.tools.logging :refer [infof]]
-   [pallet.actions :refer [exec-checked-script exec-script* minimal-packages
-                           package-manager]]
+   [pallet.actions
+    :refer [exec-checked-script exec-script exec-script* minimal-packages
+            package-manager]]
    [pallet.api :refer [converge group-spec lift plan-fn]]
    [pallet.build-actions :refer [build-actions build-session]]
    [pallet.core.api :refer [phase-errors]]
@@ -14,7 +15,7 @@
    [pallet.crates.test-nodes :as test-nodes]
    [pallet.repl :refer [explain-session]]
    [pallet.script :refer [with-script-context]]
-   [pallet.script-test :refer [is-true testing-script]]
+   [pallet.script-test :refer [is= is-true testing-script]]
    [pallet.script.lib :refer [package-manager-non-interactive]]
    [pallet.test-env
     :refer [*compute-service* *node-spec-meta*
@@ -38,18 +39,30 @@
                             (iptables/accept-port 22)
                             (iptables/throttle-port "SSH" 22))
                 :install (plan-fn
-                             (iptables/install {}))
+                           (iptables/install {}))
                 :configure (plan-fn
-                               (iptables/configure {}))
+                             (iptables/configure {}))
                 :verify (plan-fn
-                            (exec-script*
-                             (testing-script
-                              "Iptables"
-                              (is-true ("iptables save")
-                                       "Verify iptables is configured"))))})]
+                          (exec-script
+                           ("iptables-save" > "/tmp/iptables"))
+                          (exec-script*
+                           (testing-script
+                            "Iptables"
+                            (is-true
+                             (> @(pipe ("iptables-save") ("wc" -l)) 8)
+                             "Verify iptables is configured"))))
+                :reboot (plan-fn (exec-script* "reboot"))
+                :verify2 (plan-fn
+                           (Thread/sleep 20000)
+                           (exec-script*
+                            (testing-script
+                             "IptablesLoad"
+                             (is= @(pipe ("iptables-save") ("wc" -l))
+                                  @(pipe ("cat" "/tmp/iptables") ("wc" -l))
+                                  "Verify iptables is still configured"))))})]
     (with-group-spec spec
-      (let [session (lift spec
-                          :phase [:settings :install :configure :verify]
+      (let [session (lift spec :phase [:settings :install :configure :verify
+                                       :reboot :verify2]
                           :compute *compute-service*)]
         (testing "configure iptables"
           (is session)

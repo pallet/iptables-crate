@@ -3,7 +3,7 @@
   (:require
    [clojure.string :refer [join]]
    [pallet.script.lib :refer [exit]]
-   [pallet.stevedore :as stevedore :refer [script]]
+   [pallet.stevedore :as stevedore :refer [fragment script]]
    [schema.core :as schema :refer [validate]]))
 
 (def Rule [(schema/one schema/Keyword "table") (schema/one String "rule")])
@@ -118,7 +118,8 @@ COMMIT
 (defn network-manager-script
   "A script to configure iptables on network manager up"
   [iptables-file iptables-restore]
-  (script
+  (fragment
+   ("#!/bin/sh")
    (set! LOGGER (if ("[ -x /usr/bin/logger]")
                   (quoted
                    ("/usr/bin/logger" -s -p daemon.info -t FirewallHandler))
@@ -133,6 +134,7 @@ COMMIT
 (defn if-script
   "A script to configure if network up"
   [iptables-file iptables-restore]
-  (script
+  (fragment
+   ("#!/bin/sh")
    (iptables-restore < ~iptables-file)
    (exit 0)))
