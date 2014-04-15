@@ -12,7 +12,8 @@
                  [com.palletops/lein-pallet-crate "RELEASE"]]
        :pallet-release
        {:url "https://pbors:${GH_TOKEN}@github.com/pallet/iptables-crate.git"
-        :branch "master"}}
+        :branch "master"}
+       :checkout-deps-shares ^:replace [:source-paths :compile-path]}
  :aws {:pallet/test-env {:test-specs
                          [ ;; {:selector :ubuntu-13-10}
                           ;; {:selector :ubuntu-13-04
