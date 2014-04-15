@@ -1,0 +1,6 @@
+{:header "iptables"
+ :title "This crate configures iptables"
+ :git-repo "https://github.com/pallet/iptables-crate"
+ :api-docs "http://palletops.com/iptables-crate/0.8/api"
+ :tag-prefix ""
+ :versions [{:pallet "0.8.0-RC.9" :version "0.8.0-SNAPSHOT"}]}
